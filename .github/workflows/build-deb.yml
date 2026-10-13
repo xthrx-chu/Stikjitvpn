@@ -1,0 +1,55 @@
+name: Build StikJITVPN Debian Package
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-deb:
+    name: Build rootless jailbreak tweak
+    runs-on: macos-14
+    timeout-minutes: 45
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: |
+          brew update
+          brew install ldid make dpkg xz
+
+      - name: Install Theos
+        run: |
+          git clone --recursive https://github.com/theos/theos.git "$HOME/theos"
+          echo "THEOS=$HOME/theos" >> "$GITHUB_ENV"
+          mkdir -p "$HOME/theos/sdks"
+          git clone --depth 1 https://github.com/theos/sdks.git "$RUNNER_TEMP/theos-sdks"
+          SDK_DIR="$(find "$RUNNER_TEMP/theos-sdks" -maxdepth 1 -type d -name 'iPhoneOS*.sdk' | sort -V | tail -n 1)"
+          if [ -z "$SDK_DIR" ]; then
+            echo "Theos SDK repository did not contain an iPhoneOS*.sdk directory at its root." >&2
+            echo "See https://github.com/theos/sdks/releases and update this workflow to install a current SDK archive." >&2
+            exit 1
+          fi
+          cp -R "$SDK_DIR" "$HOME/theos/sdks/"
+
+      - name: Build .deb
+        run: |
+          set -euo pipefail
+          make package THEOS="$HOME/theos" FINALPACKAGE=1
+          find packages -maxdepth 1 -name '*.deb' -print -quit | grep -q .
+          mkdir -p output
+          cp packages/*.deb output/
+          dpkg-deb --info output/*.deb
+          dpkg-deb --contents output/*.deb
+
+      - name: Upload .deb
+        uses: actions/upload-artifact@v4
+        with:
+          name: StikJITVPN-deb
+          path: output/*.deb
+          if-no-files-found: error
+          retention-days: 30

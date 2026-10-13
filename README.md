@@ -1,36 +1,39 @@
 # StikJITVPN
 
-StikJITVPN is an integration patch for StikDebug. It requests that an **already installed and configured** StosVPN Network Extension connect before a StikDebug JIT/debug session starts.
+This repository contains a rootless Theos jailbreak tweak package for StikDebug and a GitHub Actions workflow that builds a `.deb`.
 
-## What this repository builds
+## What it does
 
-The GitHub Actions workflow checks out upstream StikDebug, applies `patch_stikdebug.py`, builds an **unsigned IPA**, and uploads it as a workflow artifact. It runs on a GitHub repository that contains this repository's files. A GitLab repository alone does not execute GitHub Actions; mirror/push these files to GitHub to use that workflow.
+When the tweak is injected into the StikDebug app (`com.stik.stikdebug`), it looks for an already-installed Network Extension profile whose provider bundle ID contains `StosVPN` or `TunnelProv` and asks iOS to start that VPN profile.
 
-## Device setup and limitations
+**Important:** the current tweak triggers on StikDebug app launch, not at the exact instant JIT is requested. This is a practical first integration point; it does not hook StikDebug's private Swift JIT method. Logs are available in the device system log with the `[StikJITVPN]` prefix.
 
-- Install and configure a compatible StosVPN app/profile on the device first.
-- The patch searches saved VPN profiles for a provider bundle ID containing `StosVPN` or `TunnelProv`, and waits briefly for connection before proceeding.
-- This repository does **not** embed or provision StosVPN's Network Extension. iOS requires a correctly signed extension, Network Extension entitlements, and provisioning. An unsigned IPA is a build artifact, not directly installable/usable as a VPN-enabled app until it is signed appropriately.
-- If no profile is available or the VPN fails to connect, StikDebug logs a warning and continues with its regular debug flow.
-- This automation has not been confirmed on a physical device; a successful CI build does not prove that the VPN tunnel or JIT works on-device.
+## Build the .deb on GitHub
 
-## Build from GitHub
+1. Push or mirror this repository to GitHub.
+2. Open **Actions → Build StikJITVPN Debian Package**.
+3. Run the workflow, or push a commit to `main`.
+4. Download the `StikJITVPN-deb` artifact from the completed run.
 
-1. Put this repository on GitHub (or mirror it there).
-2. Open **Actions → Build StikJITVPN IPA → Run workflow**. Pushes to `main` also trigger a build.
-3. Download the `StikJITVPN-unsigned-ipa` artifact from the completed run.
-4. Sign it using your normal iOS sideloading workflow. For VPN functionality, signing/provisioning must also satisfy Apple's Network Extension requirements.
+The workflow uses Theos and builds a **rootless** package for arm64/arm64e. A successful workflow is required before treating the package as build-verified.
 
-## Manual patch use
+## Install requirements
 
-Clone upstream StikDebug, then run this repository's patch script against the cloned source root:
+- A jailbroken iPhone/iPad compatible with rootless tweaks.
+- Substitute or another compatible tweak injection system.
+- StikDebug installed with bundle ID `com.stik.stikdebug`.
+- StosVPN installed and its VPN configuration/profile already saved and enabled.
 
-```sh
-python3 patch_stikdebug.py /path/to/StikDebug
-```
+A `.deb` is **not** installable through ordinary SideStore on a non-jailbroken device. This tweak does not bundle StosVPN or bypass Apple's Network Extension signing, profile, or user-approval requirements.
 
-Then build the modified `StikDebug.xcodeproj` with Xcode.
+## Source layout
 
-## Licenses
+- `Tweak.x`: Objective-C/Logos hook.
+- `Makefile`: Theos build configuration.
+- `control`: Debian package metadata.
+- `StikJITVPNAutoStart.plist`: injection filter.
+- `.github/workflows/build-deb.yml`: GitHub Actions build.
 
-StikDebug is AGPL-3.0. StosVPN is MIT-licensed. Preserve upstream license files and notices when redistributing modified source or builds.
+## License and upstream notices
+
+StikDebug is AGPL-3.0 and StosVPN is MIT-licensed. This repository's tweak code is an integration layer and does not include upstream StikDebug or StosVPN source. Preserve relevant upstream notices when redistributing either upstream project.

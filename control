@@ -1,0 +1,9 @@
+Package: com.xthrx.stikjitvpn-autostart
+Name: StikJITVPN AutoStart
+Version: 0.1.0
+Architecture: iphoneos-arm64
+Description: Requests an installed StosVPN tunnel to start when StikDebug launches.
+Maintainer: Xthrx
+Author: Xthrx
+Section: Tweaks
+Depends: mobilesubstrate
