@@ -1,34 +1,36 @@
 # StikJITVPN
 
-A source overlay for StikDebug that requests the installed StosVPN tunnel automatically before a JIT debug session starts.
+StikJITVPN is an integration patch for StikDebug. It requests that an **already installed and configured** StosVPN Network Extension connect before a StikDebug JIT/debug session starts.
 
-## Important limitation
+## What this repository builds
 
-This repository is an integration/patch layer, not a complete copy of StikDebug or StosVPN. iOS VPNs require a signed Network Extension embedded in an app and a provisioned VPN profile. The patch **does not install or provision StosVPN by itself**. Install and configure a compatible StosVPN build on the device first; its VPN profile must be visible to the app. The default upstream StosVPN provider bundle ID is `com.stossy11.StosVPN.TunnelProv`, but your signed build may use a different ID.
+The GitHub Actions workflow checks out upstream StikDebug, applies `patch_stikdebug.py`, builds an **unsigned IPA**, and uploads it as a workflow artifact. It runs on a GitHub repository that contains this repository's files. A GitLab repository alone does not execute GitHub Actions; mirror/push these files to GitHub to use that workflow.
 
-## Apply the patch
+## Device setup and limitations
 
-On a Mac with Xcode (required to build iOS apps):
+- Install and configure a compatible StosVPN app/profile on the device first.
+- The patch searches saved VPN profiles for a provider bundle ID containing `StosVPN` or `TunnelProv`, and waits briefly for connection before proceeding.
+- This repository does **not** embed or provision StosVPN's Network Extension. iOS requires a correctly signed extension, Network Extension entitlements, and provisioning. An unsigned IPA is a build artifact, not directly installable/usable as a VPN-enabled app until it is signed appropriately.
+- If no profile is available or the VPN fails to connect, StikDebug logs a warning and continues with its regular debug flow.
+- This automation has not been confirmed on a physical device; a successful CI build does not prove that the VPN tunnel or JIT works on-device.
+
+## Build from GitHub
+
+1. Put this repository on GitHub (or mirror it there).
+2. Open **Actions → Build StikJITVPN IPA → Run workflow**. Pushes to `main` also trigger a build.
+3. Download the `StikJITVPN-unsigned-ipa` artifact from the completed run.
+4. Sign it using your normal iOS sideloading workflow. For VPN functionality, signing/provisioning must also satisfy Apple's Network Extension requirements.
+
+## Manual patch use
+
+Clone upstream StikDebug, then run this repository's patch script against the cloned source root:
 
 ```sh
-git clone https://github.com/StikDebug/StikDebug.git
-cd StikDebug
-python3 ../stikjitvpn/patch_stikdebug.py .
+python3 patch_stikdebug.py /path/to/StikDebug
 ```
 
-Replace `../stikjitvpn` with the path to this repository. The script edits `StikDebug/Device/JITEnableContext.swift` in place and is safe to rerun. Build/sign the resulting Xcode project as usual.
+Then build the modified `StikDebug.xcodeproj` with Xcode.
 
-## Behaviour
+## Licenses
 
-- Before a JIT debug session, it looks for an enabled saved VPN configuration whose provider bundle ID identifies StosVPN.
-- If the tunnel is disconnected, it calls `startVPNTunnel()` and waits briefly for the status to change.
-- If the profile is missing, disabled, or cannot start, it logs a clear warning and continues with the normal StikDebug flow; the VPN issue will likely cause the JIT connection to fail.
-- It never creates a VPN profile or bypasses iOS signing/entitlement requirements.
-
-## CI
-
-GitLab CI checks that the patch script compiles and its expected insertion points remain valid. A real iOS build still requires a macOS/Xcode environment and valid signing/provisioning for the Network Extension.
-
-## Licensing
-
-StikDebug is AGPL-3.0. StosVPN is MIT-licensed. Review and preserve the upstream licenses and notices when redistributing modified builds.
+StikDebug is AGPL-3.0. StosVPN is MIT-licensed. Preserve upstream license files and notices when redistributing modified source or builds.
