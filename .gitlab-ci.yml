@@ -6,12 +6,4 @@ validate-integration:
   image: python:3.12-slim
   script:
     - python -m py_compile patch_stikdebug.py
-    - python - <<'PY'
-      from pathlib import Path
-      script = Path("patch_stikdebug.py").read_text()
-      required = ["import NetworkExtension", "NETunnelProviderManager.loadAllFromPreferences", "startVPNTunnel()", "private func runDebugSession("]
-      missing = [item for item in required if item not in script]
-      if missing:
-          raise SystemExit("Missing integration logic: " + ", ".join(missing))
-      print("StosVPN integration patch checks passed.")
-      PY
+    - python -c 'from pathlib import Path; s=Path("patch_stikdebug.py").read_text(); required=["import NetworkExtension","NETunnelProviderManager.loadAllFromPreferences","startVPNTunnel()","private func runDebugSession("]; missing=[x for x in required if x not in s]; assert not missing, "Missing integration logic: " + ", ".join(missing); print("StosVPN integration patch checks passed.")'
