@@ -1,7 +1,5 @@
 #import <Foundation/Foundation.h>
-#import <UIKit/UIKit.h>
 #import <NetworkExtension/NetworkExtension.h>
-#import <objc/runtime.h>
 
 static BOOL SJVStarted = NO;
 
@@ -52,29 +50,19 @@ static void SJVStartStosVPN(void) {
                 SJVLog([NSString stringWithFormat:@"VPN start failed: %@", startError.localizedDescription ?: @"unknown error"]);
                 return;
             }
-            SJVLog(@"Requested StosVPN connection. iOS may require user approval or a valid VPN profile.");
+            SJVLog(@"Requested StosVPN connection. iOS entitlement/profile checks may still reject the request.");
         }];
     }
 }
-
-%group StikJITVPNAutoStart
-%hook UIApplication
-- (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)options {
-    BOOL result = %orig;
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        SJVStartStosVPN();
-    });
-    return result;
-}
-%end
-%end
 
 %ctor {
     @autoreleasepool {
         NSString *bundleID = NSBundle.mainBundle.bundleIdentifier ?: @"";
         if ([bundleID isEqualToString:@"com.stik.stikdebug"]) {
-            %init(StikJITVPNAutoStart);
-            SJVLog(@"Loaded into StikDebug; VPN auto-start will run at app launch.");
+            SJVLog(@"Loaded into StikDebug; scheduling VPN auto-start.");
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                SJVStartStosVPN();
+            });
         }
     }
 }
